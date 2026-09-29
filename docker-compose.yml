@@ -1,0 +1,9 @@
+services:
+  agentgrid:
+    build: .
+    ports:
+      - "6080:6080"
+    environment:
+      - DISPLAY=:1
+    shm_size: "2gb"
+    restart: unless-stopped

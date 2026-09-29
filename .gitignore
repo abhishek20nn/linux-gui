@@ -1,0 +1,11 @@
+# Package installers
+*.deb
+*.AppImage
+*.rpm
+*.tar.gz
+
+# Logs & temp
+*.log
+/tmp/
+.DS_Store
+Thumbs.db
