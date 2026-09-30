@@ -105,6 +105,7 @@ find "$HOME/.config" -name "Singleton*" -delete 2>/dev/null || true
 find "$SCRIPT_DIR/.persistent_state" -name "Singleton*" -delete 2>/dev/null || true
 
 # Ensure D-Bus session bus is running
+sudo service dbus start 2>/dev/null || true
 if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
     if command -v dbus-launch >/dev/null 2>&1; then
         eval $(dbus-launch --sh-syntax)
@@ -112,15 +113,23 @@ if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
     fi
 fi
 
-# Ensure gnome-keyring-daemon is running with secret service support if needed
-if ! pgrep -f "gnome-keyring-daemon" >/dev/null 2>&1 && command -v gnome-keyring-daemon >/dev/null 2>&1; then
-    eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
+# Ensure gnome-keyring-daemon is running with secret service support
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+    if ! pgrep -f "gnome-keyring-daemon" >/dev/null 2>&1; then
+        eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
+    fi
     export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
     echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null || true
 fi
 
-echo "Starting AgentGrid with --password-store=basic in background..."
-nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage --password-store=basic > /tmp/agentgrid.log 2>&1 &
+# Initialize Secret Service collection so AgentGrid daemon connects cleanly
+if command -v secret-tool >/dev/null 2>&1; then
+    printf "ok" | secret-tool store --label="agentgrid-init" init key 2>/dev/null || true
+    secret-tool clear init key 2>/dev/null || true
+fi
+
+echo "Starting AgentGrid in background..."
+nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage > /tmp/agentgrid.log 2>&1 &
 PID=$!
 
 sleep 2

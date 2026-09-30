@@ -61,10 +61,16 @@ if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
 fi
 
 # Ensure Gnome Keyring daemon is active and automatically unlocked with blank password
-if ! pgrep -f "gnome-keyring-daemon" >/dev/null 2>&1; then
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+    pkill -9 -f "gnome-keyring-daemon" 2>/dev/null || true
+    sleep 1
     eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
     export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
     echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null || true
+fi
+
+if command -v secret-tool >/dev/null 2>&1; then
+    printf "ok" | secret-tool store --label="agentgrid-key" agentgrid api_key 2>/dev/null || true
 fi
 
 # Configure XFCE to automatically save sessions on exit
