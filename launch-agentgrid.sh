@@ -82,25 +82,38 @@ if command -v xdpyinfo >/dev/null 2>&1; then
     fi
 fi
 
-# Kill any stale instance
-killall -9 "$(basename "$AGENT_BIN")" 2>/dev/null || true
+# Forcefully terminate any previous stuck AgentGrid or keyring instances
+echo "Stopping any existing instances..."
+pkill -9 -f "Agent Grid" 2>/dev/null || true
+pkill -9 -f "agent-grid" 2>/dev/null || true
+pkill -9 -f "agentgrid" 2>/dev/null || true
+pkill -9 -f "gnome-keyring-daemon" 2>/dev/null || true
+sleep 1
 
-# Initialize DBUS and Keyring daemon (required for AgentGrid daemon & secure API key storage)
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    if command -v dbus-launch >/dev/null 2>&1; then
-        eval $(dbus-launch --sh-syntax)
-        export DBUS_SESSION_BUS_ADDRESS
-    fi
-fi
+# Setup headless login keyring
+mkdir -p "$HOME/.local/share/keyrings"
+chmod 700 "$HOME/.local/share/keyrings"
 
-if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+cat << 'EOF' > "$HOME/.local/share/keyrings/login.keyring"
+[keyring]
+display-name=login
+ctime=0
+mtime=0
+lock-on-idle=false
+lock-after=false
+EOF
+
+cat << 'EOF' > "$HOME/.local/share/keyrings/default"
+login
+EOF
+
+echo "Starting AgentGrid inside dedicated DBus & Keyring session..."
+nohup dbus-run-session -- bash -c '
     eval $(echo -n "" | gnome-keyring-daemon --unlock --components=secrets 2>/dev/null || true)
     eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
     export GNOME_KEYRING_CONTROL
-fi
-
-echo "Starting AgentGrid with --no-sandbox in background..."
-nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage --password-store=basic "$@" > /tmp/agentgrid.log 2>&1 &
+    exec "'"$AGENT_BIN"'" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage --password-store=basic "$@"
+' > /tmp/agentgrid.log 2>&1 &
 PID=$!
 
 sleep 2
