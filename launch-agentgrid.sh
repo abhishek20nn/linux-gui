@@ -104,13 +104,20 @@ echo "Cleaning stale singleton locks..."
 find "$HOME/.config" -name "Singleton*" -delete 2>/dev/null || true
 find "$SCRIPT_DIR/.persistent_state" -name "Singleton*" -delete 2>/dev/null || true
 
+# Source unified D-Bus and Keyring environment if present
+if [ -f "/tmp/dbus-session.env" ]; then
+    source "/tmp/dbus-session.env"
+fi
+
 # Ensure D-Bus session bus is running
 sudo service dbus start 2>/dev/null || true
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    if command -v dbus-launch >/dev/null 2>&1; then
-        eval $(dbus-launch --sh-syntax)
-        export DBUS_SESSION_BUS_ADDRESS
-    fi
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] || ! dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.GetId >/dev/null 2>&1; then
+    eval $(dbus-launch --sh-syntax)
+    cat << EOF > /tmp/dbus-session.env
+export DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"
+export DBUS_SESSION_BUS_PID="$DBUS_SESSION_BUS_PID"
+export DISPLAY="${DISPLAY:-:1}"
+EOF
 fi
 
 # Ensure gnome-keyring-daemon is running with secret service support
@@ -120,12 +127,6 @@ if command -v gnome-keyring-daemon >/dev/null 2>&1; then
     fi
     export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
     echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null || true
-fi
-
-# Initialize Secret Service collection so AgentGrid daemon connects cleanly
-if command -v secret-tool >/dev/null 2>&1; then
-    printf "ok" | secret-tool store --label="agentgrid-init" init key 2>/dev/null || true
-    secret-tool clear init key 2>/dev/null || true
 fi
 
 echo "Starting AgentGrid in background..."
