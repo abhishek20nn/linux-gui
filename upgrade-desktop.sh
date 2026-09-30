@@ -94,24 +94,11 @@ StartupNotify=true
 EOF
 chmod +x "$HOME/Desktop/terminal.desktop"
 
-echo "[4/6] Initializing Keyring & Secret Storage..."
-sudo service dbus start 2>/dev/null || true
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    eval $(dbus-launch --sh-syntax)
-    export DBUS_SESSION_BUS_ADDRESS
+echo "[4/6] Initializing Persistent Session Storage & Keyring..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/setup-persistence.sh" ]; then
+    bash "$SCRIPT_DIR/setup-persistence.sh"
 fi
-
-rm -rf "$HOME/.local/share/keyrings"
-mkdir -p "$HOME/.local/share/keyrings"
-chmod 700 "$HOME/.local/share/keyrings"
-
-find "$HOME/.config" -name "Singleton*" -delete 2>/dev/null || true
-
-pkill -9 -f "gnome-keyring-daemon" 2>/dev/null || true
-sleep 1
-eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
-echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null || true
-export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
 
 echo "[5/6] Updating Startup Configuration for Persistent XFCE..."
 # Ensure .bashrc has DBus and Keyring variables

@@ -91,17 +91,18 @@ for pid in $(pgrep -f "/opt/Agent Grid/Agent Grid" 2>/dev/null || true); do
     fi
 done
 pkill -9 -f "/opt/agent-grid" 2>/dev/null || true
-pkill -9 -f "gnome-keyring-daemon" 2>/dev/null || true
 sleep 1
 
-# Remove stale Electron singleton locks left over from killed processes
+# Ensure session persistence is active
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/setup-persistence.sh" ]; then
+    bash "$SCRIPT_DIR/setup-persistence.sh"
+fi
+
+# Remove stale Electron singleton locks left over from killed processes (never wipe databases)
 echo "Cleaning stale singleton locks..."
 find "$HOME/.config" -name "Singleton*" -delete 2>/dev/null || true
-
-# Clean any corrupted dummy keyring files and ensure dir exists
-rm -rf "$HOME/.local/share/keyrings"
-mkdir -p "$HOME/.local/share/keyrings"
-chmod 700 "$HOME/.local/share/keyrings"
+find "$SCRIPT_DIR/.persistent_state" -name "Singleton*" -delete 2>/dev/null || true
 
 # Ensure D-Bus session bus is running
 if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
@@ -111,15 +112,15 @@ if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
     fi
 fi
 
-# Start gnome-keyring-daemon with secret service support
-if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+# Ensure gnome-keyring-daemon is running with secret service support if needed
+if ! pgrep -f "gnome-keyring-daemon" >/dev/null 2>&1 && command -v gnome-keyring-daemon >/dev/null 2>&1; then
     eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
     export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
     echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null || true
 fi
 
-echo "Starting AgentGrid with --no-sandbox in background..."
-nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage > /tmp/agentgrid.log 2>&1 &
+echo "Starting AgentGrid with --password-store=basic in background..."
+nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage --password-store=basic > /tmp/agentgrid.log 2>&1 &
 PID=$!
 
 sleep 2

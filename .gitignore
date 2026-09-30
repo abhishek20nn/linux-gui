@@ -9,3 +9,7 @@
 /tmp/
 .DS_Store
 Thumbs.db
+
+# Persistent User Session Data (Personal logins, cookies, tokens)
+.persistent_state/
+.session_backup/

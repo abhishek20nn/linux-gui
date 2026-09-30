@@ -14,7 +14,12 @@ if ! command -v startxfce4 >/dev/null 2>&1 || ! command -v google-chrome >/dev/n
     exit 0
 fi
 
-# 2. Clean stale locks from previous sessions
+# 2. Ensure persistent session storage is active
+if [ -f "setup-persistence.sh" ]; then
+    bash setup-persistence.sh
+fi
+
+# 3. Clean stale locks from previous sessions
 find "$HOME/.config" -name "Singleton*" -delete 2>/dev/null || true
 
 # 3. Ensure D-Bus and Keyring daemon are active
