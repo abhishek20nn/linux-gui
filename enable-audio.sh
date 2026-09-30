@@ -9,18 +9,22 @@ echo "===================================================================="
 export DEBIAN_FRONTEND=noninteractive
 export DISPLAY="${DISPLAY:-:1}"
 
-echo "[1/5] Installing PulseAudio & Python Server Dependencies..."
+echo "[1/5] Installing PulseAudio, ALSA Plugins & Server Dependencies..."
 sudo apt-get update -y
 sudo apt-get install -y --no-install-recommends \
     pulseaudio \
     pulseaudio-utils \
     pavucontrol \
     alsa-utils \
+    libasound2-plugins \
     python3 \
     python3-pip \
     python3-aiohttp \
     curl \
     net-tools
+
+# Add current user to audio group
+sudo usermod -aG audio "$USER" 2>/dev/null || true
 
 # Fallback install if python3-aiohttp was missing
 python3 -c "import aiohttp" 2>/dev/null || pip3 install aiohttp 2>/dev/null || true
@@ -78,17 +82,35 @@ pactl load-module module-native-protocol-tcp auth-anonymous=1 listen=127.0.0.1 p
 pactl -s 127.0.0.1:4713 set-default-sink auto_null 2>/dev/null || pactl set-default-sink auto_null 2>/dev/null || true
 pactl -s 127.0.0.1:4713 set-default-source auto_null.monitor 2>/dev/null || pactl set-default-source auto_null.monitor 2>/dev/null || true
 
+# Explicitly UNMUTE and set volume to 100% (65536)
+pactl set-sink-mute auto_null 0 2>/dev/null || true
+pactl set-sink-volume auto_null 65536 2>/dev/null || true
+pactl set-source-mute auto_null.monitor 0 2>/dev/null || true
+pactl set-source-volume auto_null.monitor 65536 2>/dev/null || true
+
+pactl -s 127.0.0.1:4713 set-sink-mute auto_null 0 2>/dev/null || true
+pactl -s 127.0.0.1:4713 set-sink-volume auto_null 65536 2>/dev/null || true
+pactl -s 127.0.0.1:4713 set-source-mute auto_null.monitor 0 2>/dev/null || true
+pactl -s 127.0.0.1:4713 set-source-volume auto_null.monitor 65536 2>/dev/null || true
+
 echo "[3/5] Setting up Environment & Chrome Audio Hook..."
 export PULSE_SERVER="127.0.0.1:4713"
 if ! grep -q "PULSE_SERVER" "$HOME/.bashrc" 2>/dev/null; then
     echo 'export PULSE_SERVER="127.0.0.1:4713"' >> "$HOME/.bashrc"
 fi
 
-# Ensure Chrome wrapper exports PULSE_SERVER
+# Ensure Chrome wrapper exports PULSE_SERVER and ALSA settings
 sudo tee /usr/local/bin/google-chrome > /dev/null << 'EOF'
 #!/bin/bash
 export PULSE_SERVER="127.0.0.1:4713"
-exec /usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage --test-type "$@"
+export ALSA_CARD=pulse
+exec /usr/bin/google-chrome-stable \
+    --no-sandbox \
+    --disable-dev-shm-usage \
+    --test-type \
+    --autoplay-policy=no-user-gesture-required \
+    --alsa-output-device=pulse \
+    "$@"
 EOF
 sudo chmod +x /usr/local/bin/google-chrome
 sudo ln -sf /usr/local/bin/google-chrome /usr/local/bin/chrome 2>/dev/null || true
@@ -552,10 +574,28 @@ if curl -s http://127.0.0.1:6081/health >/dev/null 2>&1; then
     echo " 🎉 SUCCESS: Cloud Audio Engine is LIVE & VERIFIED!"
     echo " Server Status: $HEALTH"
     echo "===================================================================="
+    echo " 🎵 Playing 2-second test chime to test speakers..."
+    python3 -c "
+import math, struct, subprocess
+sample_rate = 44100
+tones = [(523.25, 0.3), (659.25, 0.3), (783.99, 0.3), (1046.50, 0.6)]
+data = bytearray()
+for freq, dur in tones:
+    n = int(sample_rate * dur)
+    for i in range(n):
+        val = int(32767.0 * 0.7 * math.sin(2.0 * math.pi * freq * i / sample_rate))
+        data.extend(struct.pack('<hh', val, val))
+try:
+    p = subprocess.Popen(['paplay', '--raw', '--rate=44100', '--channels=2', '--format=s16le', '-d', 'auto_null'], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    p.communicate(input=bytes(data))
+except Exception:
+    pass
+" 2>/dev/null || true
+    echo "===================================================================="
     echo " 👉 1. Switch back to your browser tab on Port 6081:"
-    echo "       (Or refresh the page that previously had error 502)"
-    echo " 👉 2. Click '🔊 Start Listening' to unmute!"
-    echo " 👉 3. Play any YouTube video in Chrome or sound in AgentGrid,"
+    echo "       (Ensure 'Audio Active (Playing Live)' is green)"
+    echo " 👉 2. RESTART Google Chrome from Desktop so Chrome connects to PulseAudio!"
+    echo " 👉 3. Play any YouTube video in Chrome,"
     echo "       and you will hear it live through your PC speakers!"
     echo "===================================================================="
 else
