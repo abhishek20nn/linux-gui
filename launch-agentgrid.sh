@@ -90,30 +90,28 @@ pkill -9 -f "agentgrid" 2>/dev/null || true
 pkill -9 -f "gnome-keyring-daemon" 2>/dev/null || true
 sleep 1
 
-# Setup headless login keyring
+# Clean any corrupted dummy keyring files and ensure dir exists
+rm -rf "$HOME/.local/share/keyrings"
 mkdir -p "$HOME/.local/share/keyrings"
 chmod 700 "$HOME/.local/share/keyrings"
 
-cat << 'EOF' > "$HOME/.local/share/keyrings/login.keyring"
-[keyring]
-display-name=login
-ctime=0
-mtime=0
-lock-on-idle=false
-lock-after=false
-EOF
+# Ensure D-Bus session bus is running
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    if command -v dbus-launch >/dev/null 2>&1; then
+        eval $(dbus-launch --sh-syntax)
+        export DBUS_SESSION_BUS_ADDRESS
+    fi
+fi
 
-cat << 'EOF' > "$HOME/.local/share/keyrings/default"
-login
-EOF
-
-echo "Starting AgentGrid inside dedicated DBus & Keyring session..."
-nohup dbus-run-session -- bash -c '
-    eval $(echo -n "" | gnome-keyring-daemon --unlock --components=secrets 2>/dev/null || true)
+# Start gnome-keyring-daemon with secret service support
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
     eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
-    export GNOME_KEYRING_CONTROL
-    exec "'"$AGENT_BIN"'" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage --password-store=basic "$@"
-' > /tmp/agentgrid.log 2>&1 &
+    export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
+    echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null || true
+fi
+
+echo "Starting AgentGrid with --no-sandbox in background..."
+nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage > /tmp/agentgrid.log 2>&1 &
 PID=$!
 
 sleep 2
@@ -126,5 +124,6 @@ if ps -p $PID > /dev/null 2>&1 || pgrep -f "$(basename "$AGENT_BIN")" > /dev/nul
     echo "===================================================================="
 else
     echo "⚠️ Process exited early. Checking log output:"
-    cat /tmp/agentgrid.log
+    tail -n 30 /tmp/agentgrid.log
 fi
+
