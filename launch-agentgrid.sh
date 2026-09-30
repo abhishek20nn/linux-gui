@@ -90,6 +90,10 @@ pkill -9 -f "agentgrid" 2>/dev/null || true
 pkill -9 -f "gnome-keyring-daemon" 2>/dev/null || true
 sleep 1
 
+# Remove stale Electron singleton locks left over from killed processes
+echo "Cleaning stale singleton locks..."
+find "$HOME/.config" -name "Singleton*" -delete 2>/dev/null || true
+
 # Clean any corrupted dummy keyring files and ensure dir exists
 rm -rf "$HOME/.local/share/keyrings"
 mkdir -p "$HOME/.local/share/keyrings"

@@ -9,10 +9,11 @@ echo "===================================================================="
 sudo apt-get update -y
 sudo apt-get install -y --no-install-recommends gnome-keyring dbus-x11 libsecret-1-0 libsecret-tools
 
-# 1. Clean any corrupted keyring dummy files
+# 1. Clean any corrupted keyring dummy files and stale singleton locks
 rm -rf "$HOME/.local/share/keyrings"
 mkdir -p "$HOME/.local/share/keyrings"
 chmod 700 "$HOME/.local/share/keyrings"
+find "$HOME/.config" -name "Singleton*" -delete 2>/dev/null || true
 
 # 2. Start DBUS session if not present
 sudo service dbus start 2>/dev/null || true
