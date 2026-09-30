@@ -24,6 +24,12 @@ if [ -f "$HOME/.fluxbox/menu" ]; then
     fi
 fi
 
+# Switch to XFCE if installed
+if command -v startxfce4 >/dev/null 2>&1 && pgrep -f fluxbox >/dev/null 2>&1; then
+    pkill -9 fluxbox 2>/dev/null || true
+    nohup startxfce4 > /tmp/xfce.log 2>&1 &
+fi
+
 echo ""
 echo "===================================================================="
 echo " 🌐 AgentGrid Linux Desktop GUI is ready!"
