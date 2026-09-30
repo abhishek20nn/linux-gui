@@ -20,6 +20,8 @@ sudo apt-get install -y --no-install-recommends \
     libsecret-1-0 \
     libsecret-tools \
     gnome-keyring \
+    pavucontrol \
+    pulseaudio \
     fonts-liberation \
     xdg-utils \
     wget \
@@ -33,10 +35,10 @@ if ! command -v google-chrome-stable >/dev/null 2>&1; then
     rm -f /tmp/chrome.deb
 fi
 
-# Wrap Google Chrome to run inside Docker sandbox safely
+# Wrap Google Chrome to run inside Docker sandbox safely without warning banners
 sudo tee /usr/local/bin/google-chrome > /dev/null << 'EOF'
 #!/bin/bash
-exec /usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage --disable-gpu-sandbox "$@"
+exec /usr/bin/google-chrome-stable --no-sandbox --disable-dev-shm-usage --test-type "$@"
 EOF
 sudo chmod +x /usr/local/bin/google-chrome
 sudo ln -sf /usr/local/bin/google-chrome /usr/local/bin/chrome 2>/dev/null || true
