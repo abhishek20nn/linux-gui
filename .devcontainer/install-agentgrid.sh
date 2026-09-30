@@ -64,6 +64,9 @@ $SUDO apt-get install -y --no-install-recommends \
     libxss1 \
     xdg-utils \
     libsecret-1-0 \
+    libsecret-tools \
+    gnome-keyring \
+    dbus-x11 \
     menu || true
 
 # Determine download URL for latest AgentGrid .deb package

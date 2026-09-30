@@ -85,8 +85,22 @@ fi
 # Kill any stale instance
 killall -9 "$(basename "$AGENT_BIN")" 2>/dev/null || true
 
+# Initialize DBUS and Keyring daemon (required for AgentGrid daemon & secure API key storage)
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    if command -v dbus-launch >/dev/null 2>&1; then
+        eval $(dbus-launch --sh-syntax)
+        export DBUS_SESSION_BUS_ADDRESS
+    fi
+fi
+
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+    eval $(echo -n "" | gnome-keyring-daemon --unlock --components=secrets 2>/dev/null || true)
+    eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
+    export GNOME_KEYRING_CONTROL
+fi
+
 echo "Starting AgentGrid with --no-sandbox in background..."
-nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "$@" > /tmp/agentgrid.log 2>&1 &
+nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage --password-store=basic "$@" > /tmp/agentgrid.log 2>&1 &
 PID=$!
 
 sleep 2
