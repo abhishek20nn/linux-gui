@@ -46,9 +46,8 @@ if command -v autocutsel >/dev/null 2>&1 && ! pgrep -f "autocutsel" >/dev/null 2
 fi
 
 # 6. Ensure live audio streaming server is running on Port 6081
-if [ -f "/usr/local/bin/audio-server.py" ] && ! pgrep -f "audio-server.py" >/dev/null 2>&1; then
-    pulseaudio --start --exit-idle-time=-1 2>/dev/null || true
-    nohup /usr/bin/python3 /usr/local/bin/audio-server.py > /tmp/audio-server.log 2>&1 &
+if [ -f "enable-audio.sh" ] && ! pgrep -f "audio-server.py" >/dev/null 2>&1; then
+    bash enable-audio.sh > /tmp/audio-setup.log 2>&1 &
 fi
 
 echo "===================================================================="

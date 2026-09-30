@@ -3,6 +3,7 @@ set -e
 
 # Target X11 Display (desktop-lite uses :1)
 export DISPLAY="${DISPLAY:-:1}"
+export PULSE_SERVER="${PULSE_SERVER:-127.0.0.1:4713}"
 
 echo "===================================================================="
 echo " 🚀 Launching AgentGrid Desktop GUI on DISPLAY=$DISPLAY"
