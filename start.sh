@@ -45,9 +45,15 @@ if command -v autocutsel >/dev/null 2>&1 && ! pgrep -f "autocutsel" >/dev/null 2
     autocutsel -selection PRIMARY -fork 2>/dev/null || true
 fi
 
+# 6. Ensure live audio streaming server is running on Port 6081
+if [ -f "/usr/local/bin/audio-server.py" ] && ! pgrep -f "audio-server.py" >/dev/null 2>&1; then
+    pulseaudio --start --exit-idle-time=-1 2>/dev/null || true
+    nohup /usr/bin/python3 /usr/local/bin/audio-server.py > /tmp/audio-server.log 2>&1 &
+fi
+
 echo "===================================================================="
 echo " ✅ Desktop is LIVE!"
-echo " 👉 1. Open your browser tab on Port 6080 (noVNC)"
-echo " 👉 2. Double-click Google Chrome or AgentGrid icon on the desktop"
+echo " 👉 1. Open your browser tab on Port 6080 (noVNC for Display)"
+echo " 👉 2. Open your browser tab on Port 6081 (for Live Audio Stream)"
 echo " 👉 3. To launch AgentGrid from terminal: ./launch-agentgrid.sh"
 echo "===================================================================="

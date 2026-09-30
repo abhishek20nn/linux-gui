@@ -7,10 +7,14 @@
       "password": "vscode"
     }
   },
-  "forwardPorts": [6080, 5901],
+  "forwardPorts": [6080, 6081, 5901],
   "portsAttributes": {
     "6080": {
       "label": "AgentGrid Web Desktop (noVNC)",
+      "onAutoForward": "openBrowserOnce"
+    },
+    "6081": {
+      "label": "Live Desktop Audio Stream",
       "onAutoForward": "openBrowserOnce"
     },
     "5901": {
