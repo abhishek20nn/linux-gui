@@ -42,4 +42,15 @@ if ps -p $PID > /dev/null; then
 else
     echo "⚠️ Process exited early. Checking log output:"
     cat /tmp/agentgrid.log
+    if grep -q "binary not found" /tmp/agentgrid.log; then
+        echo ""
+        echo "Auto-triggering installation now..."
+        bash .devcontainer/install-agentgrid.sh
+        echo "Restarting AgentGrid..."
+        nohup agentgrid-runner "$@" > /tmp/agentgrid.log 2>&1 &
+        sleep 2
+        if ps -C agentgrid > /dev/null 2>&1 || ps -C AgentGrid > /dev/null 2>&1; then
+            echo "✅ AgentGrid is now running successfully!"
+        fi
+    fi
 fi

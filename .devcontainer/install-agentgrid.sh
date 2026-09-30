@@ -115,22 +115,49 @@ rm -rf "$DOWNLOAD_DIR"
 
 # Locate the installed AgentGrid executable
 AGENTGRID_BIN=""
-for candidate in /opt/AgentGrid/agentgrid /usr/bin/agentgrid /opt/agentgrid/agentgrid; do
+
+# Check standard paths (both capitalized and lowercase)
+for candidate in \
+    /opt/AgentGrid/AgentGrid \
+    /opt/AgentGrid/agentgrid \
+    /opt/agentgrid/AgentGrid \
+    /opt/agentgrid/agentgrid \
+    /usr/bin/AgentGrid \
+    /usr/bin/agentgrid \
+    /opt/agent-grid/agent-grid \
+    /usr/local/bin/agentgrid-bin; do
     if [ -x "$candidate" ]; then
         AGENTGRID_BIN="$candidate"
         break
     fi
 done
 
+# If not found in standard paths, inspect dpkg installed files
 if [ -z "$AGENTGRID_BIN" ]; then
-    # Search for it
-    FOUND=$(find /opt /usr -name agentgrid -type f -perm /111 2>/dev/null | head -n 1 || true)
+    PKG_NAME=$(dpkg -l 2>/dev/null | grep -i "agentgrid" | awk '{print $2}' | head -n 1 || true)
+    if [ -n "$PKG_NAME" ]; then
+        for f in $(dpkg -L "$PKG_NAME" 2>/dev/null); do
+            if [ -f "$f" ] && [ -x "$f" ] && [[ "$f" == *"/opt/"* || "$f" == *"/bin/"* ]]; then
+                case "$(basename "$f")" in
+                    *agentgrid*|*AgentGrid*)
+                        AGENTGRID_BIN="$f"
+                        break
+                        ;;
+                esac
+            fi
+        done
+    fi
+fi
+
+# Fallback: case-insensitive filesystem search
+if [ -z "$AGENTGRID_BIN" ]; then
+    FOUND=$(find /opt /usr -iname "*agentgrid*" -type f -perm /111 2>/dev/null | grep -v "agentgrid-runner" | head -n 1 || true)
     if [ -n "$FOUND" ]; then
         AGENTGRID_BIN="$FOUND"
     fi
 fi
 
-echo "AgentGrid binary located at: ${AGENTGRID_BIN:-Not explicitly found in standard /opt paths}"
+echo "AgentGrid binary located at: ${AGENTGRID_BIN:-Not found}"
 
 # Create hardened wrapper script with --no-sandbox (required for Chromium/Electron inside Docker/Codespaces)
 $SUDO tee /usr/local/bin/agentgrid-runner > /dev/null << 'EOF'
@@ -139,7 +166,15 @@ export DISPLAY="${DISPLAY:-:1}"
 
 # Find AgentGrid binary
 EXEC_BIN=""
-for path in /opt/AgentGrid/agentgrid /usr/bin/agentgrid /opt/agentgrid/agentgrid /usr/local/bin/agentgrid-bin; do
+for path in \
+    /opt/AgentGrid/AgentGrid \
+    /opt/AgentGrid/agentgrid \
+    /opt/agentgrid/AgentGrid \
+    /opt/agentgrid/agentgrid \
+    /usr/bin/AgentGrid \
+    /usr/bin/agentgrid \
+    /opt/agent-grid/agent-grid \
+    /usr/local/bin/agentgrid-bin; do
     if [ -x "$path" ]; then
         EXEC_BIN="$path"
         break
@@ -147,15 +182,32 @@ for path in /opt/AgentGrid/agentgrid /usr/bin/agentgrid /opt/agentgrid/agentgrid
 done
 
 if [ -z "$EXEC_BIN" ]; then
-    EXEC_BIN=$(command -v agentgrid || true)
+    # Search via dpkg
+    PKG_NAME=$(dpkg -l 2>/dev/null | grep -i "agentgrid" | awk '{print $2}' | head -n 1 || true)
+    if [ -n "$PKG_NAME" ]; then
+        for f in $(dpkg -L "$PKG_NAME" 2>/dev/null); do
+            if [ -f "$f" ] && [ -x "$f" ] && [[ "$f" == *"/opt/"* || "$f" == *"/bin/"* ]]; then
+                case "$(basename "$f")" in
+                    *agentgrid*|*AgentGrid*)
+                        EXEC_BIN="$f"
+                        break
+                        ;;
+                esac
+            fi
+        done
+    fi
+fi
+
+if [ -z "$EXEC_BIN" ]; then
+    EXEC_BIN=$(find /opt /usr -iname "*agentgrid*" -type f -perm /111 2>/dev/null | grep -v "agentgrid-runner" | head -n 1 || true)
 fi
 
 if [ -z "$EXEC_BIN" ] || [ ! -x "$EXEC_BIN" ]; then
-    echo "Error: AgentGrid binary not found. Please run .devcontainer/install-agentgrid.sh again." >&2
+    echo "Error: AgentGrid binary not found. Please run: bash .devcontainer/install-agentgrid.sh" >&2
     exit 1
 fi
 
-echo "Starting AgentGrid with DISPLAY=$DISPLAY and --no-sandbox flag..."
+echo "Starting AgentGrid with DISPLAY=$DISPLAY and --no-sandbox flag from $EXEC_BIN..."
 # Disable Chromium GPU and sandbox restrictions common to unprivileged container environments
 exec "$EXEC_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "$@"
 EOF
