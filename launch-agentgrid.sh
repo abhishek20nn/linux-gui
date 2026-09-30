@@ -82,11 +82,14 @@ if command -v xdpyinfo >/dev/null 2>&1; then
     fi
 fi
 
-# Forcefully terminate any previous stuck AgentGrid or keyring instances
-echo "Stopping any existing instances..."
-pkill -9 -f "Agent Grid" 2>/dev/null || true
-pkill -9 -f "agent-grid" 2>/dev/null || true
-pkill -9 -f "agentgrid" 2>/dev/null || true
+# Forcefully terminate any previous stuck AgentGrid binary (excluding this script PID $$)
+echo "Stopping any existing AgentGrid instances..."
+for pid in $(pgrep -f "/opt/Agent Grid/Agent Grid" 2>/dev/null || true); do
+    if [ "$pid" != "$$" ]; then
+        kill -9 "$pid" 2>/dev/null || true
+    fi
+done
+pkill -9 -f "/opt/agent-grid" 2>/dev/null || true
 pkill -9 -f "gnome-keyring-daemon" 2>/dev/null || true
 sleep 1
 
