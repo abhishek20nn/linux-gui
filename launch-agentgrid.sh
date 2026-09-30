@@ -1,148 +1,15 @@
 #!/usr/bin/env bash
 set -e
 
-# Target X11 Display (desktop-lite uses :1)
-export DISPLAY="${DISPLAY:-:1}"
-export PULSE_SERVER="${PULSE_SERVER:-127.0.0.1:4713}"
-
 echo "===================================================================="
-echo " 🚀 Launching AgentGrid Desktop GUI on DISPLAY=$DISPLAY"
+echo " 🚀 Delegating to Unified AgentGrid Launcher (fix-keyring.sh)"
 echo "===================================================================="
 
-# 1. Locate the AgentGrid executable
-AGENT_BIN=""
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Check direct commands and standard paths
-for candidate in \
-    "$(command -v agent-grid 2>/dev/null || true)" \
-    "$(command -v agentgrid 2>/dev/null || true)" \
-    "$(command -v AgentGrid 2>/dev/null || true)" \
-    "/opt/Agent Grid/agent-grid" \
-    "/opt/Agent Grid/Agent Grid" \
-    "/opt/agent-grid/agent-grid" \
-    "/opt/AgentGrid/AgentGrid" \
-    "/opt/AgentGrid/agentgrid" \
-    "/usr/bin/agent-grid" \
-    "/usr/bin/agentgrid" \
-    "/usr/bin/AgentGrid" \
-    "/usr/local/bin/agentgrid-runner"; do
-    if [ -n "$candidate" ] && [ -x "$candidate" ] && [ "$candidate" != "/usr/local/bin/agentgrid-runner" ]; then
-        AGENT_BIN="$candidate"
-        break
-    fi
-done
-
-# Check dpkg installed files if not found yet
-if [ -z "$AGENT_BIN" ]; then
-    PKG=$(dpkg -l 2>/dev/null | grep -i -E "agent-grid|agentgrid" | awk '{print $2}' | head -n 1 || true)
-    if [ -n "$PKG" ]; then
-        while IFS= read -r f; do
-            if [ -f "$f" ] && [ -x "$f" ]; then
-                case "$f" in
-                    *chrome-sandbox*) continue ;;
-                    */bin/*|*/opt/*)
-                        AGENT_BIN="$f"
-                        break
-                        ;;
-                esac
-            fi
-        done < <(dpkg -L "$PKG" 2>/dev/null)
-    fi
-fi
-
-# Fallback: filesystem search
-if [ -z "$AGENT_BIN" ]; then
-    AGENT_BIN=$(find /opt /usr/bin -iname "*agent*grid*" -type f -perm /111 2>/dev/null | grep -v "runner" | grep -v "sandbox" | head -n 1 || true)
-fi
-
-# If still not found, run installer
-if [ -z "$AGENT_BIN" ]; then
-    echo "AgentGrid binary not found yet. Running installer..."
-    if [ -f ".devcontainer/install-agentgrid.sh" ]; then
-        bash .devcontainer/install-agentgrid.sh
-    elif [ -f "install.sh" ]; then
-        bash install.sh
-    fi
-    # Re-check after install
-    AGENT_BIN=$(find /opt /usr/bin -iname "*agent*grid*" -type f -perm /111 2>/dev/null | grep -v "runner" | grep -v "sandbox" | head -n 1 || true)
-fi
-
-if [ -z "$AGENT_BIN" ] || [ ! -x "$AGENT_BIN" ]; then
-    echo "❌ Error: Could not locate AgentGrid executable."
-    echo "Please check installed files with: dpkg -L agent-grid"
+if [ -f "$SCRIPT_DIR/fix-keyring.sh" ]; then
+    bash "$SCRIPT_DIR/fix-keyring.sh"
+else
+    echo "❌ Error: fix-keyring.sh not found in $SCRIPT_DIR"
     exit 1
 fi
-
-echo "Found AgentGrid binary at: $AGENT_BIN"
-
-# Check if X server is responsive on DISPLAY
-if command -v xdpyinfo >/dev/null 2>&1; then
-    if ! xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
-        echo "Warning: Display $DISPLAY is not currently reachable."
-        echo "If desktop-lite is starting up, please wait a moment or verify port 6080."
-    fi
-fi
-
-# Forcefully terminate any previous stuck AgentGrid binary (excluding this script PID $$)
-echo "Stopping any existing AgentGrid instances..."
-for pid in $(pgrep -f "/opt/Agent Grid/Agent Grid" 2>/dev/null || true); do
-    if [ "$pid" != "$$" ]; then
-        kill -9 "$pid" 2>/dev/null || true
-    fi
-done
-pkill -9 -f "/opt/agent-grid" 2>/dev/null || true
-sleep 1
-
-# Ensure session persistence is active
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/setup-persistence.sh" ]; then
-    bash "$SCRIPT_DIR/setup-persistence.sh"
-fi
-
-# Remove stale Electron singleton locks left over from killed processes (never wipe databases)
-echo "Cleaning stale singleton locks..."
-find "$HOME/.config" -name "Singleton*" -delete 2>/dev/null || true
-find "$SCRIPT_DIR/.persistent_state" -name "Singleton*" -delete 2>/dev/null || true
-
-# Source unified D-Bus and Keyring environment if present
-if [ -f "/tmp/dbus-session.env" ]; then
-    source "/tmp/dbus-session.env"
-fi
-
-# Ensure D-Bus session bus is running
-sudo service dbus start 2>/dev/null || true
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] || ! dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply /org/freedesktop/DBus org.freedesktop.DBus.GetId >/dev/null 2>&1; then
-    eval $(dbus-launch --sh-syntax)
-    cat << EOF > /tmp/dbus-session.env
-export DBUS_SESSION_BUS_ADDRESS="$DBUS_SESSION_BUS_ADDRESS"
-export DBUS_SESSION_BUS_PID="$DBUS_SESSION_BUS_PID"
-export DISPLAY="${DISPLAY:-:1}"
-EOF
-fi
-
-# Ensure gnome-keyring-daemon is running with secret service support
-if command -v gnome-keyring-daemon >/dev/null 2>&1; then
-    if ! pgrep -f "gnome-keyring-daemon" >/dev/null 2>&1; then
-        eval $(gnome-keyring-daemon --start --components=secrets 2>/dev/null || true)
-    fi
-    export GNOME_KEYRING_CONTROL SSH_AUTH_SOCK
-    echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null || true
-fi
-
-echo "Starting AgentGrid in background..."
-nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage > /tmp/agentgrid.log 2>&1 &
-PID=$!
-
-sleep 2
-
-if ps -p $PID > /dev/null 2>&1 || pgrep -f "$(basename "$AGENT_BIN")" > /dev/null 2>&1; then
-    echo "===================================================================="
-    echo " ✅ AgentGrid is running successfully (PID: $PID)!"
-    echo " 👉 Open your browser tab on Port 6080 (fluxbox - noVNC) to see it!"
-    echo " 👉 View logs with: tail -f /tmp/agentgrid.log"
-    echo "===================================================================="
-else
-    echo "⚠️ Process exited early. Checking log output:"
-    tail -n 30 /tmp/agentgrid.log
-fi
-
