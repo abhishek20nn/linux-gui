@@ -8,18 +8,71 @@ echo "===================================================================="
 echo " 🚀 Launching AgentGrid Desktop GUI on DISPLAY=$DISPLAY"
 echo "===================================================================="
 
-# Check if AgentGrid runner exists
-if ! command -v agentgrid-runner >/dev/null 2>&1; then
-    echo "AgentGrid is not installed yet. Running installer..."
+# 1. Locate the AgentGrid executable
+AGENT_BIN=""
+
+# Check direct commands and standard paths
+for candidate in \
+    "$(command -v agent-grid 2>/dev/null || true)" \
+    "$(command -v agentgrid 2>/dev/null || true)" \
+    "$(command -v AgentGrid 2>/dev/null || true)" \
+    "/opt/Agent Grid/agent-grid" \
+    "/opt/Agent Grid/Agent Grid" \
+    "/opt/agent-grid/agent-grid" \
+    "/opt/AgentGrid/AgentGrid" \
+    "/opt/AgentGrid/agentgrid" \
+    "/usr/bin/agent-grid" \
+    "/usr/bin/agentgrid" \
+    "/usr/bin/AgentGrid" \
+    "/usr/local/bin/agentgrid-runner"; do
+    if [ -n "$candidate" ] && [ -x "$candidate" ] && [ "$candidate" != "/usr/local/bin/agentgrid-runner" ]; then
+        AGENT_BIN="$candidate"
+        break
+    fi
+done
+
+# Check dpkg installed files if not found yet
+if [ -z "$AGENT_BIN" ]; then
+    PKG=$(dpkg -l 2>/dev/null | grep -i -E "agent-grid|agentgrid" | awk '{print $2}' | head -n 1 || true)
+    if [ -n "$PKG" ]; then
+        while IFS= read -r f; do
+            if [ -f "$f" ] && [ -x "$f" ]; then
+                case "$f" in
+                    *chrome-sandbox*) continue ;;
+                    */bin/*|*/opt/*)
+                        AGENT_BIN="$f"
+                        break
+                        ;;
+                esac
+            fi
+        done < <(dpkg -L "$PKG" 2>/dev/null)
+    fi
+fi
+
+# Fallback: filesystem search
+if [ -z "$AGENT_BIN" ]; then
+    AGENT_BIN=$(find /opt /usr/bin -iname "*agent*grid*" -type f -perm /111 2>/dev/null | grep -v "runner" | grep -v "sandbox" | head -n 1 || true)
+fi
+
+# If still not found, run installer
+if [ -z "$AGENT_BIN" ]; then
+    echo "AgentGrid binary not found yet. Running installer..."
     if [ -f ".devcontainer/install-agentgrid.sh" ]; then
         bash .devcontainer/install-agentgrid.sh
     elif [ -f "install.sh" ]; then
         bash install.sh
-    else
-        echo "Error: Installer script not found!"
-        exit 1
     fi
+    # Re-check after install
+    AGENT_BIN=$(find /opt /usr/bin -iname "*agent*grid*" -type f -perm /111 2>/dev/null | grep -v "runner" | grep -v "sandbox" | head -n 1 || true)
 fi
+
+if [ -z "$AGENT_BIN" ] || [ ! -x "$AGENT_BIN" ]; then
+    echo "❌ Error: Could not locate AgentGrid executable."
+    echo "Please check installed files with: dpkg -L agent-grid"
+    exit 1
+fi
+
+echo "Found AgentGrid binary at: $AGENT_BIN"
 
 # Check if X server is responsive on DISPLAY
 if command -v xdpyinfo >/dev/null 2>&1; then
@@ -29,28 +82,22 @@ if command -v xdpyinfo >/dev/null 2>&1; then
     fi
 fi
 
-echo "Starting AgentGrid in background..."
-nohup agentgrid-runner "$@" > /tmp/agentgrid.log 2>&1 &
+# Kill any stale instance
+killall -9 "$(basename "$AGENT_BIN")" 2>/dev/null || true
+
+echo "Starting AgentGrid with --no-sandbox in background..."
+nohup "$AGENT_BIN" --no-sandbox --disable-gpu-sandbox --disable-dev-shm-usage "$@" > /tmp/agentgrid.log 2>&1 &
 PID=$!
 
 sleep 2
 
-if ps -p $PID > /dev/null; then
-    echo "✅ AgentGrid is running successfully (PID: $PID)!"
-    echo "👉 Switch to your browser tab on Port 6080 (noVNC) to interact with the GUI."
-    echo "👉 View logs anytime with: tail -f /tmp/agentgrid.log"
+if ps -p $PID > /dev/null 2>&1 || pgrep -f "$(basename "$AGENT_BIN")" > /dev/null 2>&1; then
+    echo "===================================================================="
+    echo " ✅ AgentGrid is running successfully (PID: $PID)!"
+    echo " 👉 Open your browser tab on Port 6080 (fluxbox - noVNC) to see it!"
+    echo " 👉 View logs with: tail -f /tmp/agentgrid.log"
+    echo "===================================================================="
 else
     echo "⚠️ Process exited early. Checking log output:"
     cat /tmp/agentgrid.log
-    if grep -q "binary not found" /tmp/agentgrid.log; then
-        echo ""
-        echo "Auto-triggering installation now..."
-        bash .devcontainer/install-agentgrid.sh
-        echo "Restarting AgentGrid..."
-        nohup agentgrid-runner "$@" > /tmp/agentgrid.log 2>&1 &
-        sleep 2
-        if ps -C agentgrid > /dev/null 2>&1 || ps -C AgentGrid > /dev/null 2>&1; then
-            echo "✅ AgentGrid is now running successfully!"
-        fi
-    fi
 fi
