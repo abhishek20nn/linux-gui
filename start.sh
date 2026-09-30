@@ -39,6 +39,12 @@ if ! pgrep -f "xfce4-session" >/dev/null 2>&1; then
     sleep 2
 fi
 
+# 5. Ensure autocutsel is running for seamless clipboard sync
+if command -v autocutsel >/dev/null 2>&1 && ! pgrep -f "autocutsel" >/dev/null 2>&1; then
+    autocutsel -fork 2>/dev/null || true
+    autocutsel -selection PRIMARY -fork 2>/dev/null || true
+fi
+
 echo "===================================================================="
 echo " ✅ Desktop is LIVE!"
 echo " 👉 1. Open your browser tab on Port 6080 (noVNC)"
