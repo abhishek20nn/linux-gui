@@ -38,6 +38,13 @@ elif command -v startxfce4 >/dev/null 2>&1 && pgrep -f fluxbox >/dev/null 2>&1; 
     nohup startxfce4 > /tmp/xfce.log 2>&1 &
 fi
 
+# Automatically install and enable bidirectional clipboard bridge
+if [ -f "/workspaces/linux-gui/enable-auto-clipboard.sh" ]; then
+    bash "/workspaces/linux-gui/enable-auto-clipboard.sh" 2>/dev/null || true
+elif [ -f "enable-auto-clipboard.sh" ]; then
+    bash "enable-auto-clipboard.sh" 2>/dev/null || true
+fi
+
 echo ""
 echo "===================================================================="
 echo " 🌐 Cloud Desktop is ready on Port 6080 (noVNC)!"
