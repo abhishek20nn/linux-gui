@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mobile YouTube Redirector</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="logo-group">
+        <img src="icons/icon-32.png" alt="Logo" class="logo-icon">
+        <div>
+          <h1 class="title">Mobile YouTube</h1>
+          <span class="version-badge">v1.1.0 • MV3</span>
+        </div>
+      </div>
+      <div class="status-indicator">
+        <span class="status-dot"></span>
+        <span class="status-text">Active</span>
+      </div>
+    </header>
+
+    <div class="card metrics-card">
+      <div class="metric">
+        <span class="metric-value">0 MB</span>
+        <span class="metric-label">RAM Overhead</span>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric">
+        <span class="metric-value">Native</span>
+        <span class="metric-label">Engine</span>
+      </div>
+      <div class="metric-divider"></div>
+      <div class="metric">
+        <span class="metric-value">Zero</span>
+        <span class="metric-label">Redirect Loop</span>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2 class="section-title">Active Rules</h2>
+      <div class="rule-item">
+        <div class="rule-icon redirect-icon">➔</div>
+        <div class="rule-content">
+          <div class="rule-name">Domain Redirection</div>
+          <div class="rule-detail"><code>www.youtube.com</code> → <code>m.youtube.com</code></div>
+        </div>
+      </div>
+      <div class="rule-item">
+        <div class="rule-icon header-icon">⚡</div>
+        <div class="rule-content">
+          <div class="rule-name">Mobile Header Spoofing</div>
+          <div class="rule-detail">Android UA + Client Hints (prevents 302 loop)</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button id="openMobileYt" class="btn btn-primary">
+        Open Mobile YouTube
+      </button>
+      <button id="testRedirect" class="btn btn-secondary">
+        Test Desktop Redirect
+      </button>
+    </div>
+
+    <footer class="footer">
+      <span>DeclarativeNetRequest • Ultra-low Memory</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

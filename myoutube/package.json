@@ -1,0 +1,15 @@
+{
+  "name": "myoutube",
+  "version": "1.0.0",
+  "description": "An ultra-low-memory, zero-background Chrome extension built with Manifest V3 that redirects all YouTube desktop visits to Mobile YouTube (`https://m.youtube.com`).",
+  "main": "popup.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "playwright": "^1.65.1"
+  }
+}

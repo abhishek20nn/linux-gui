@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF3333" />
+      <stop offset="100%" stop-color="#CC0000" />
+    </linearGradient>
+  </defs>
+  <!-- Background rounded squircle -->
+  <rect x="6" y="6" width="116" height="116" rx="28" fill="url(#bgGrad)" />
+  <!-- Smartphone body -->
+  <rect x="28" y="16" width="72" height="96" rx="10" fill="#0F0F0F" stroke="#FFFFFF" stroke-width="4" />
+  <!-- Speaker notch -->
+  <rect x="52" y="22" width="24" height="4" rx="2" fill="#666666" />
+  <!-- YouTube play button in screen -->
+  <rect x="36" y="36" width="56" height="40" rx="8" fill="#FF0000" />
+  <polygon points="58,46 58,66 74,56" fill="#FFFFFF" />
+  <!-- 'm.' badge in bottom corner -->
+  <circle cx="86" cy="94" r="16" fill="#FFFFFF" stroke="#CC0000" stroke-width="2.5" />
+  <text x="86" y="99" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="900" fill="#CC0000" text-anchor="middle">m</text>
+</svg>

@@ -5,6 +5,9 @@
     "ghcr.io/devcontainers/features/desktop-lite:1": {
       "version": "latest",
       "password": "vscode"
+    },
+    "ghcr.io/devcontainers/features/sshd:1": {
+      "version": "latest"
     }
   },
   "forwardPorts": [6080, 6081, 5901],

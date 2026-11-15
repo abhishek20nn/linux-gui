@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 
+# Ensure Desktop directory exists and sync extension folder
+mkdir -p "$HOME/Desktop"
+if [ -d "/workspaces/linux-gui/myoutube" ]; then
+    cp -rn "/workspaces/linux-gui/myoutube" "$HOME/Desktop/" 2>/dev/null || true
+    ln -sf "/workspaces/linux-gui/myoutube" "$HOME/Desktop/myoutube-linked" 2>/dev/null || true
+fi
+
 # Setup desktop shortcut if directory exists
 if [ -d "$HOME/Desktop" ]; then
-    mkdir -p "$HOME/Desktop"
     cat << 'EOF' > "$HOME/Desktop/AgentGrid.desktop"
 [Desktop Entry]
 Name=AgentGrid
