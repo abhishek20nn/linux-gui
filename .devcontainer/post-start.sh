@@ -61,6 +61,21 @@ EOF
 EOF
 fi
 
+# Ensure autocutsel is installed and running for seamless clipboard sync
+if ! command -v autocutsel >/dev/null 2>&1; then
+    sudo apt-get update -y && sudo apt-get install -y autocutsel xclip 2>/dev/null || true
+fi
+if command -v autocutsel >/dev/null 2>&1 && ! pgrep -f "autocutsel" >/dev/null 2>&1; then
+    DISPLAY=:1 autocutsel -fork 2>/dev/null || true
+    DISPLAY=:1 autocutsel -selection PRIMARY -fork 2>/dev/null || true
+fi
+
+# Apply seamless clipboard sync bridge to noVNC
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/patch-novnc-bridge.py" ]; then
+    sudo python3 "$SCRIPT_DIR/patch-novnc-bridge.py" 2>/dev/null || true
+fi
+
 # Run safe clipboard daemon
 if [ -f "/workspaces/linux-gui/enable-auto-clipboard.sh" ]; then
     bash "/workspaces/linux-gui/enable-auto-clipboard.sh" 2>/dev/null || true
