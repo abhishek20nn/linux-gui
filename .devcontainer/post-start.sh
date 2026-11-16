@@ -38,6 +38,29 @@ elif command -v startxfce4 >/dev/null 2>&1 && pgrep -f fluxbox >/dev/null 2>&1; 
     nohup startxfce4 > /tmp/xfce.log 2>&1 &
 fi
 
+# Configure permanent full noVNC with autoconnect and redirect vnc_lite
+if [ -d "/usr/local/novnc/noVNC-1.6.0" ]; then
+    cat << 'EOF' | sudo tee "/usr/local/novnc/noVNC-1.6.0/mandatory.json" >/dev/null
+{
+  "autoconnect": true,
+  "password": "vscode",
+  "resize": "scale"
+}
+EOF
+    cat << 'EOF' | sudo tee "/usr/local/novnc/noVNC-1.6.0/vnc_lite.html" >/dev/null
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="refresh" content="0; url=vnc.html">
+  <script>window.location.replace("vnc.html");</script>
+</head>
+<body>
+  <p>Loading full Ubuntu desktop...</p>
+</body>
+</html>
+EOF
+fi
+
 # Run safe clipboard daemon
 if [ -f "/workspaces/linux-gui/enable-auto-clipboard.sh" ]; then
     bash "/workspaces/linux-gui/enable-auto-clipboard.sh" 2>/dev/null || true
