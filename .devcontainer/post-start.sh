@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Pull latest repo fixes on start
+if [ -d "/workspaces/linux-gui" ]; then
+    cd /workspaces/linux-gui
+    git pull origin main 2>/dev/null || true
+fi
+
 # Ensure Desktop directory exists and sync extension folder
 mkdir -p "$HOME/Desktop"
 if [ -d "/workspaces/linux-gui/myoutube" ]; then
@@ -36,6 +42,12 @@ if [ -f "start.sh" ]; then
 elif command -v startxfce4 >/dev/null 2>&1 && pgrep -f fluxbox >/dev/null 2>&1; then
     pkill -9 fluxbox 2>/dev/null || true
     nohup startxfce4 > /tmp/xfce.log 2>&1 &
+fi
+
+# Repair noVNC if corrupted or 0 bytes
+if [ ! -s "/usr/share/novnc/vnc.html" ] || [ ! -s "/usr/share/novnc/index.html" ]; then
+    echo "Restoring factory clean noVNC..."
+    sudo apt-get update -y && sudo apt-get install --reinstall -y novnc || true
 fi
 
 # Automatically install and enable bidirectional clipboard bridge

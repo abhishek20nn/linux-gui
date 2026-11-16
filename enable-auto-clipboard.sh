@@ -7,10 +7,12 @@ echo "===================================================================="
 
 export DISPLAY="${DISPLAY:-:1}"
 
-echo "[1/3] Ensuring clipboard tools (autocutsel, xclip, xsel)..."
+# Fix git credentials for private repo
 if [ -n "$GITHUB_TOKEN" ]; then
     git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/abhishek20nn/linux-gui.git" 2>/dev/null || true
 fi
+
+echo "[1/3] Ensuring clipboard tools (autocutsel, xclip, xsel)..."
 sudo apt-get update -y
 sudo apt-get install -y --no-install-recommends autocutsel xclip xsel python3
 
@@ -19,11 +21,37 @@ pkill -9 autocutsel 2>/dev/null || true
 autocutsel -fork || true
 autocutsel -selection PRIMARY -fork || true
 
-echo "[3/3] Patching noVNC web client with safe guarded clipboard bridge..."
-sudo python3 - << 'PYEOF'
-import glob, re
+echo "[3/3] Checking and repairing noVNC files..."
+# Restore novnc if corrupted or empty
+for test_file in "/usr/share/novnc/vnc.html" "/usr/share/novnc/index.html"; do
+    if [ ! -s "$test_file" ]; then
+        echo "Detected missing or empty $test_file. Reinstalling pristine novnc..."
+        sudo apt-get install --reinstall -y novnc
+        break
+    fi
+done
 
-bridge_code = """<!-- Seamless Bidirectional Clipboard Bridge (PC <-> Ubuntu) -->
+sudo python3 - << 'PYEOF'
+import os, re
+
+target = "/usr/share/novnc/vnc.html"
+if os.path.islink(target):
+    target = os.path.realpath(target)
+
+if os.path.exists(target) and os.path.getsize(target) > 2000:
+    with open(target, "r", encoding="utf-8", errors="ignore") as f:
+        content = f.read()
+    
+    # Save clean backup
+    orig = target + ".orig"
+    if not os.path.exists(orig) and len(content) > 5000:
+        with open(orig, "w", encoding="utf-8") as f:
+            f.write(content)
+            
+    # Clean previous injected scripts
+    content = re.sub(r'<!--\s*(Auto-Sync|Seamless)[\s\S]*?<\/script>', '', content)
+    
+    bridge_code = """<!-- Seamless Bidirectional Clipboard Bridge (PC <-> Ubuntu) -->
 <script>
 (function() {
     let lastPushedText = "";
@@ -174,20 +202,11 @@ bridge_code = """<!-- Seamless Bidirectional Clipboard Bridge (PC <-> Ubuntu) --
 })();
 </script>"""
 
-files = glob.glob("/usr/**/vnc.html", recursive=True) + glob.glob("/usr/**/index.html", recursive=True)
-for path in files:
-    if "novnc" in path.lower() or "vnc" in path.lower():
-        try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-            content = re.sub(r'<!--\s*(Auto-Sync|Seamless)[\s\S]*?<\/script>', '', content)
-            if "</body>" in content:
-                content = content.replace("</body>", bridge_code + "\n</body>")
-                with open(path, "w", encoding="utf-8") as f:
-                    f.write(content)
-                print(f"Successfully patched {path}")
-        except Exception as e:
-            print(f"Error patching {path}: {e}")
+    if "</body>" in content and len(content) > 2000:
+        content = content.replace("</body>", bridge_code + "\n</body>")
+        with open(target, "w", encoding="utf-8") as f:
+            f.write(content)
+        print(f"Successfully patched {target}")
 PYEOF
 
 echo "===================================================================="
