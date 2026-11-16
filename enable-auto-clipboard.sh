@@ -8,6 +8,10 @@ echo "===================================================================="
 export DISPLAY="${DISPLAY:-:1}"
 
 echo "[1/4] Installing clipboard tools (autocutsel, xclip, xsel)..."
+# Fix git authentication for private repo in codespaces
+if [ -n "$GITHUB_TOKEN" ]; then
+    git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/abhishek20nn/linux-gui.git" 2>/dev/null || true
+fi
 sudo apt-get update -y
 sudo apt-get install -y --no-install-recommends autocutsel xclip xsel
 
